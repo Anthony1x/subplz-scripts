@@ -1,0 +1,23 @@
+services:
+  subplz:
+    image: kanjieater/subplz:latest
+    container_name: subplz
+    restart: unless-stopped
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=America/Chicago
+      - WHISPER_MODEL=turbo
+      - HF_HOME=/config/cache/huggingface
+    volumes:
+      # Map your media library. Left side is your Host path, right is the Container path.
+      - "./media:/media"
+      # Map a local config directory to the container.
+      - "./config:/config"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]

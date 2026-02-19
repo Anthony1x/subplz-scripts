@@ -1,0 +1,18 @@
+# SubPlz Runtime Data
+config/cache/
+config/logs/
+config/jobs/
+config/fails/
+config/.nv/
+config/.bash_history
+
+# Local Media (Downloads and subtitles)
+media/
+
+# OS/Editor specific files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp
+*~

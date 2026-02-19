@@ -1,0 +1,74 @@
+# Rooted from env var BASE_PATH
+# [REQUIRED] These folder must be on the host machine at $BASE_PATH/logs, $BASE_PATH/cache. Created by default for you, but set your env var.
+base_dirs:
+  logs: "logs"
+  cache: "cache"
+  watcher_jobs: "jobs"
+  watcher_errors: "fails"
+
+# ===============================================
+# Settings for the Real-time Job Consumer/Watcher
+# ===============================================
+watcher:
+  # [REQUIRED] The mapping of paths from inside your Docker containers to your host machine.
+  # This allows the script to translate container paths from Bazarr jobs to real host paths.
+  # Key (left): Path on the host machine
+  # Value (right): Corresponding path inside the container
+  path_map:
+    "/mnt/an/ja-anime/": "/data/ja-anime/"
+    "/some/unmapped_media/": "/some/unmapped_media/"
+
+  # If a job were to hang due to CUDA resources or any other reason you can kill it automatically after this timeout
+  # Defaults to 10 mins (600s). Consider raising it if you're running on CPU
+  job_timeout_seconds: 600
+  # [OPTIONAL] If this key is present, the watcher will use a polling-based
+  # mechanism instead of native OS events. This is less efficient but is
+  # REQUIRED if you are running this script inside WSL and watching a
+  # directory on the Windows file system (e.g., /mnt/c/).
+  # To use the default, efficient watcher, simply remove or comment out this line.
+  polling_interval_seconds: 2
+
+# ==========================================================
+# Settings for the Scheduled Library Scanner ("Gap-Filler")
+# ==========================================================
+scanner:
+  # [REQUIRED] The subtitle extension to check for. If a video is missing a
+  # sub with this extension, a job will be created.
+  target_sub_extensions:
+    - ".ae.srt"  # Native Target Language (from extraction)
+    - ".as.srt"  # Alass Synced
+    - ".av.srt"  # Alass Variant AI Synced
+    - ".ak.srt"  # KanjiEater/SubPlz Synced
+    - ".az.srt"  # AI Generated (Whisper)
+    - ".ab.srt"  # Bazarr (base/original downloaded sub)
+
+  # [OPTIONAL] A list of filename parts to ignore during the scan.
+  blacklist_filenames: ["OP", "ED", "NCOP", "NCED"]
+
+  # [OPTIONAL] A list of directory names to completely ignore during the scan.
+  blacklist_dirs: ["新しいフォルダー", "New folder"]
+
+# ==========================================================
+# Settings for the Batch Processor
+# ==========================================================
+batch_pipeline:
+  - name: "Source: Rename 'ja' subs to 'ab' for processing"
+    command: 'rename -d "{directory}" --file "{file}" --lang-ext ab --lang-ext-original ja --unique --overwrite'
+
+  - name: "Embedded: Extract & Verify Native Target Language ('ja' -> 'ae')"
+    command: 'extract -d "{directory}" --file "{file}" --lang-ext ae --lang-ext-original ja --verify'
+
+  - name: "Alass: ('en' + 'ab' -> 'as')"
+    command: 'sync -d "{directory}" --file "{file}" --lang-ext as --lang-ext-original en --lang-ext-incorrect ab --alass'
+
+  - name: "SubPlz: ('ab' -> 'ak')"
+    command: 'sync -d "{directory}" --file "{file}" --lang-ext ak --lang-ext-original ab --model turbo'
+
+  - name: "Stable-ts: ('az')"
+    command: 'gen -d "{directory}" --file "{file}" --lang-ext az --model turbo'
+
+  - name: "Alass Variant: ('az' + 'ab' -> 'av')"
+    command: 'sync -d "{directory}" --file "{file}" --lang-ext av --lang-ext-original az --lang-ext-incorrect ab --alass'
+
+  - name: "Best: Copy best subtitle to 'ja'"
+    command: 'copy -d "{directory}" --file "{file}" --lang-ext ja --lang-ext-priority ae av as ak az ab --overwrite'
